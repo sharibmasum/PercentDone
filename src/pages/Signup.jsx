@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
-import FormContainer from '../components/FormContainer'
-import Input from '../components/Input'
-import Button from '../components/Button'
+import DarkContainer from '../components/DarkContainer'
+import DarkInput from '../components/DarkInput'
+import DarkButton from '../components/DarkButton'
+import AlertMessage from '../components/AlertMessage'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -36,63 +37,75 @@ export default function Signup() {
   }
 
   return (
-    <FormContainer
-      title="Create your account"
-      subtitle="Or"
-      linkText="sign in to your account"
-      linkTo="/login"
-      onSubmit={handleSignup}
-    >
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-md">
-          {error}
+    <DarkContainer>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-light text-white mb-2">Join PercentDone</h1>
+        <p className="text-gray-400 text-sm">Create your account to start tracking progress</p>
+      </div>
+
+      <form onSubmit={handleSignup} className="space-y-6">
+        {error && (
+          <AlertMessage type="error">
+            {error}
+          </AlertMessage>
+        )}
+
+        <div className="space-y-4">
+          <DarkInput
+            id="email-address"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+          />
+          
+          <DarkInput
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            required
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+          />
+          
+          <DarkInput
+            id="confirm-password"
+            name="confirm-password"
+            type="password"
+            autoComplete="new-password"
+            required
+            placeholder="Confirm Password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            disabled={loading}
+          />
         </div>
-      )}
 
-      <div className="rounded-md shadow-sm -space-y-px">
-        <Input
-          id="email-address"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className="rounded-t-md"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={loading}
-        />
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          required
-          className=""
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={loading}
-        />
-        <Input
-          id="confirm-password"
-          name="confirm-password"
-          type="password"
-          autoComplete="new-password"
-          required
-          className="rounded-b-md"
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-
-      <div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <DarkButton type="submit" disabled={loading}>
           {loading ? 'Creating account...' : 'Create Account'}
-        </Button>
+        </DarkButton>
+      </form>
+
+      {/* Footer */}
+      <div className="text-center mt-8">
+        <p className="text-gray-400 text-sm">
+          Already have an account?{' '}
+          <Link 
+            to="/login" 
+            className="text-blue-400 hover:text-blue-300 transition-colors duration-200"
+          >
+            Sign in here
+          </Link>
+        </p>
       </div>
-    </FormContainer>
+    </DarkContainer>
   )
 } 

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
-import FormContainer from '../components/FormContainer'
-import Input from '../components/Input'
-import Button from '../components/Button'
+import DarkContainer from '../components/DarkContainer'
+import DarkInput from '../components/DarkInput'
+import DarkButton from '../components/DarkButton'
+import AlertMessage from '../components/AlertMessage'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -29,51 +30,63 @@ export default function Login() {
   }
 
   return (
-    <FormContainer
-      title="Sign in to your account"
-      subtitle="Or"
-      linkText="create a new account"
-      linkTo="/signup"
-      onSubmit={handleLogin}
-    >
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-md">
-          {error}
+    <DarkContainer>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-light text-white mb-2">Welcome back</h1>
+        <p className="text-gray-400 text-sm">Sign in to your PercentDone account</p>
+      </div>
+
+      <form onSubmit={handleLogin} className="space-y-6">
+        {error && (
+          <AlertMessage type="error">
+            {error}
+          </AlertMessage>
+        )}
+
+        <div className="space-y-4">
+          <DarkInput
+            id="email-address"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+          />
+          
+          <DarkInput
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+          />
         </div>
-      )}
 
-      <div className="rounded-md shadow-sm -space-y-px">
-        <Input
-          id="email-address"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className="rounded-t-md"
-          placeholder="Email address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={loading}
-        />
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="rounded-b-md"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-
-      <div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <DarkButton type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign in'}
-        </Button>
+        </DarkButton>
+      </form>
+
+      {/* Footer */}
+      <div className="text-center mt-8">
+        <p className="text-gray-400 text-sm">
+          Don't have an account?{' '}
+          <Link 
+            to="/signup" 
+            className="text-blue-400 hover:text-blue-300 transition-colors duration-200"
+          >
+            Create one here
+          </Link>
+        </p>
       </div>
-    </FormContainer>
+    </DarkContainer>
   )
 } 

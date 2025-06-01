@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { todoOperations } from '../lib/supabase'
-import Button from '../components/Button'
-import Input from '../components/Input'
-import ProgressBar from '../components/ProgressBar'
+import DarkContainer from '../components/DarkContainer'
+import DateHeader from '../components/DateHeader'
+import TodoInput from '../components/TodoInput'
+import TodoItem from '../components/TodoItem'
+import ProgressIndicator from '../components/ProgressIndicator'
+import DarkButton from '../components/DarkButton'
+import AlertMessage from '../components/AlertMessage'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -13,16 +17,6 @@ export default function Dashboard() {
   const [newTodo, setNewTodo] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [currentDateTime, setCurrentDateTime] = useState(new Date())
-
-  // Update current date/time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentDateTime(new Date())
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [])
 
   // Load todos when user changes
   useEffect(() => {
@@ -220,160 +214,92 @@ export default function Dashboard() {
 
   const completedCount = todos.filter(todo => todo.completed).length
   const totalCount = todos.length
-  const completionPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
-
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
-
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="text-center space-y-2">
-              <h1 className="text-2xl font-bold text-gray-900">PercentDone</h1>
-              {user ? (
-                <>
-                  <p className="text-sm text-gray-500">
-                    Logged in as {user.email}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {formatDate(currentDateTime)} {formatTime(currentDateTime)}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-500">
-                    {formatDate(currentDateTime)} {formatTime(currentDateTime)}
-                  </p>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
-                    <p className="text-sm text-yellow-800">
-                      ⚠️ PercentDone can't save your todo items unless you sign in
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
+    <DarkContainer>
+      <DateHeader />
 
-            {/* Today's Progress */}
-            <div className="bg-white p-4 rounded-lg shadow">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">Today's Progress</h2>
-                <span className="text-sm text-gray-600">
-                  {Math.round(completionPercentage)}% ({completedCount}/{totalCount})
-                </span>
-              </div>
-              <ProgressBar completed={completedCount} total={totalCount} />
-            </div>
+      <TodoInput
+        value={newTodo}
+        onChange={(e) => setNewTodo(e.target.value)}
+        onSubmit={handleAddTodo}
+        disabled={loading}
+      />
 
-            {/* Add Todo Form */}
-            <form onSubmit={handleAddTodo} className="space-y-4" noValidate>
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  value={newTodo}
-                  onChange={(e) => setNewTodo(e.target.value)}
-                  placeholder="Add a new todo..."
-                  className="flex-1"
-                  disabled={loading}
-                />
-                <Button type="submit" className="whitespace-nowrap" disabled={loading}>
-                  {loading ? 'Adding...' : 'Add Todo'}
-                </Button>
-              </div>
-            </form>
+      {/* Error Message */}
+      {error && (
+        <AlertMessage type="error">
+          {error}
+        </AlertMessage>
+      )}
 
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 text-red-500 p-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Todo List */}
-            <div className="space-y-2">
-              {loading ? (
-                <p className="text-center text-gray-500">Loading todos...</p>
-              ) : todos.length === 0 ? (
-                <p className="text-center text-gray-500">
-                  No todos for today. Add one above!
-                </p>
-              ) : (
-                todos.map(todo => (
-                  <div
-                    key={todo.id}
-                    className="bg-white p-4 rounded-lg shadow flex items-center justify-between"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        checked={todo.completed}
-                        onChange={() => handleToggleTodo(todo.id, todo.completed)}
-                        className="h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                      />
-                      <span className={`${todo.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                        {todo.task}
-                        {!user && todo.local && (
-                          <span className="ml-2 text-xs text-yellow-600">(local)</span>
-                        )}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteTodo(todo.id)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Analytics and Auth Buttons */}
-            <div className="space-y-3">
-              <Button
-                onClick={() => navigate('/analytics')}
-                className="w-full"
-              >
-                📊 View Analytics
-              </Button>
-              
-              {user ? (
-                <Button
-                  onClick={handleSignOut}
-                  variant="secondary"
-                  className="w-full"
-                >
-                  Sign Out
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => navigate('/login')}
-                  variant="secondary"
-                  className="w-full"
-                >
-                  Sign In to Save Todos
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Todo List */}
+      <div className="space-y-3 mb-8">
+        {loading ? (
+          <p className="text-center text-gray-400 py-8">Loading todos...</p>
+        ) : todos.length === 0 ? (
+          <p className="text-center text-gray-400 py-8">
+            No tasks for today. Add one above!
+          </p>
+        ) : (
+          todos.map(todo => (
+            <TodoItem
+              key={todo.id}
+              todo={todo}
+              onToggle={handleToggleTodo}
+              onDelete={handleDeleteTodo}
+              showLocalTag={!user}
+            />
+          ))
+        )}
       </div>
-    </div>
+
+      <ProgressIndicator completed={completedCount} total={totalCount} />
+
+      {/* Bottom Actions */}
+      <div className="space-y-3">
+        <DarkButton
+          onClick={() => navigate('/analytics')}
+          variant="secondary"
+        >
+          📊 View Analytics
+        </DarkButton>
+        
+        {user ? (
+          <div className="text-center space-y-3">
+            <p className="text-xs text-gray-500">Logged in as {user.email}</p>
+            <DarkButton
+              onClick={handleSignOut}
+              variant="outline"
+            >
+              Sign Out
+            </DarkButton>
+          </div>
+        ) : (
+          <>
+            <DarkButton
+              onClick={() => navigate('/login')}
+              variant="primary"
+            >
+              Sign In to Save Todos
+            </DarkButton>
+            
+            {/* Warning for non-authenticated users - moved to bottom */}
+            <div className="text-center pt-2">
+              <p className="text-xs text-yellow-400">
+                ⚠️ Sign in to save your todos permanently
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Small Logo/Title at Bottom */}
+      <div className="text-center mt-8 pt-4 border-t border-gray-800">
+        <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
+          📝 PercentDone - Created by Sharib Masum
+        </p>
+      </div>
+    </DarkContainer>
   )
 } 
