@@ -56,10 +56,10 @@ export default function Analytics() {
     : 0
 
   return (
-    <DarkContainer className="max-w-4xl">
+    <DarkContainer variant="auth">
       {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-light text-white mb-2">📊 Analytics</h1>
+      <div className="text-center mb-6">
+        <h1 className="text-2xl font-light text-white mb-2">📊 Analytics</h1>
         <p className="text-gray-400 text-sm">
           Your productivity insights for the past week
           {!user && ' (local data only)'}
@@ -86,7 +86,7 @@ export default function Analytics() {
 
       {/* Loading State */}
       {loading ? (
-        <div className="text-center py-12">
+        <div className="text-center py-8">
           <p className="text-gray-400">Loading analytics...</p>
         </div>
       ) : (
@@ -114,48 +114,48 @@ export default function Analytics() {
           )}
 
           {/* Weekly Summary Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 text-center">
-              <div className="text-3xl font-bold text-blue-400">
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 text-center">
+              <div className="text-2xl font-bold text-blue-400">
                 {weeklyStats.activeDays}
               </div>
-              <div className="text-sm text-gray-400">Active Days</div>
+              <div className="text-xs text-gray-400">Active Days</div>
             </div>
             
-            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 text-center">
-              <div className="text-3xl font-bold text-green-400">
+            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 text-center">
+              <div className="text-2xl font-bold text-green-400">
                 {Math.round(averageCompletion)}%
               </div>
-              <div className="text-sm text-gray-400">Average Completion</div>
+              <div className="text-xs text-gray-400">Avg Completion</div>
             </div>
             
-            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 text-center">
-              <div className="text-3xl font-bold text-purple-400">
+            <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 text-center">
+              <div className="text-2xl font-bold text-purple-400">
                 {weeklyStats.totalTodos}
               </div>
-              <div className="text-sm text-gray-400">Total Todos</div>
+              <div className="text-xs text-gray-400">Total Todos</div>
             </div>
           </div>
 
           {/* Bar Chart */}
-          <div className="mb-8">
+          <div className="mb-6">
             <BarChart data={weeklyData} />
           </div>
 
           {/* Daily Breakdown */}
-          <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+          <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
             <h3 className="text-lg font-semibold text-white mb-4">Daily Breakdown</h3>
             
             {weeklyData.length === 0 || weeklyData.every(day => day.total_todos === 0) ? (
-              <div className="text-center py-8">
-                <div className="text-4xl mb-4">📊</div>
+              <div className="text-center py-6">
+                <div className="text-3xl mb-3">📊</div>
                 <p className="text-gray-400 mb-2">No data yet!</p>
                 <p className="text-sm text-gray-500">
                   Start adding and completing todos to see your analytics here.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {weeklyData.map((day) => {
                   const isToday = day.date === new Date().toISOString().split('T')[0]
                   return (
@@ -166,15 +166,15 @@ export default function Analytics() {
                       }`}
                     >
                       <div>
-                        <span className={`font-medium ${isToday ? 'text-blue-300' : 'text-white'}`}>
+                        <span className={`font-medium text-sm ${isToday ? 'text-blue-300' : 'text-white'}`}>
                           {day.dayName} {isToday && '(Today)'}
                         </span>
-                        <span className="text-sm text-gray-400 ml-2">
+                        <span className="text-xs text-gray-400 ml-2">
                           {new Date(day.date).toLocaleDateString()}
                         </span>
                       </div>
                       <div className="text-right">
-                        <div className={`font-semibold ${
+                        <div className={`font-semibold text-sm ${
                           day.completion_percentage === 100 ? 'text-green-400' : 
                           day.completion_percentage > 0 ? 'text-yellow-400' : 'text-gray-500'
                         }`}>
@@ -193,9 +193,9 @@ export default function Analytics() {
 
           {/* Reset Data Option for Non-authenticated Users */}
           {!user && weeklyData.some(day => day.total_todos > 0) && (
-            <div className="mt-6 p-4 bg-red-900/20 border border-red-600/50 rounded-lg">
-              <h4 className="text-red-400 font-semibold mb-2">Reset Local Data</h4>
-              <p className="text-sm text-red-300 mb-3">
+            <div className="mt-4 p-4 bg-red-900/20 border border-red-600/50 rounded-lg">
+              <h4 className="text-red-400 font-semibold mb-2 text-sm">Reset Local Data</h4>
+              <p className="text-xs text-red-300 mb-3">
                 This will permanently delete all your local analytics data. This action cannot be undone.
               </p>
               <DarkButton 
@@ -206,7 +206,7 @@ export default function Analytics() {
                   }
                 }}
                 variant="outline"
-                className="text-red-400 border-red-600 hover:bg-red-900/30"
+                className="text-red-400 border-red-600 hover:bg-red-900/30 text-sm"
               >
                 Reset All Data
               </DarkButton>

@@ -54,6 +54,25 @@ export const todoOperations = {
     return data || []
   },
 
+  // Get todos for a specific date
+  async getTodosByDate(dateString) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      console.log('No user authenticated, returning empty array')
+      return [] // Return empty array for non-authenticated users
+    }
+    
+    const { data, error } = await supabase
+      .from('todos')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('todo_date', dateString)
+      .order('created_at', { ascending: false })
+    
+    if (error) throw error
+    return data || []
+  },
+
   // Add a new todo
   async addTodo(task) {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -76,6 +95,44 @@ export const todoOperations = {
       user_id: user.id,
       completed: false,
       todo_date: today
+    }
+    
+    const { data, error } = await supabase
+      .from('todos')
+      .insert([todoData])
+      .select('*')
+      .single()
+    
+    if (error) {
+      console.error('Error inserting todo:', error)
+      console.error('Todo data attempted:', todoData)
+      throw error
+    }
+    
+    console.log('Successfully inserted todo:', data)
+    return data
+  },
+
+  // Add a new todo for a specific date
+  async addTodoForDate(task, dateString) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    
+    if (userError) {
+      console.error('Error getting user:', userError)
+      throw new Error('Failed to get user information')
+    }
+    
+    if (!user) {
+      throw new Error('Must be logged in to add todos to database')
+    }
+    
+    console.log('Adding todo for user:', user.id, 'task:', task, 'date:', dateString)
+    
+    const todoData = {
+      task: task.trim(),
+      user_id: user.id,
+      completed: false,
+      todo_date: dateString
     }
     
     const { data, error } = await supabase

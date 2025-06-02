@@ -1,231 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { todoOperations } from '../lib/supabase'
 import DarkContainer from '../components/DarkContainer'
-import DateHeader from '../components/DateHeader'
-import TodoInput from '../components/TodoInput'
-import TodoItem from '../components/TodoItem'
-import ProgressIndicator from '../components/ProgressIndicator'
+import DayCard from '../components/DayCard'
 import DarkButton from '../components/DarkButton'
-import AlertMessage from '../components/AlertMessage'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
-  const [todos, setTodos] = useState([])
-  const [newTodo, setNewTodo] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [mobileIndex, setMobileIndex] = useState(0) // For mobile navigation
 
-  // Load todos when user changes
-  useEffect(() => {
-    const loadTodos = async () => {
-      if (!user) {
-        // For non-authenticated users, start with empty todos (local only)
-        setTodos([])
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        setError(null)
-        const data = await todoOperations.getTodos()
-        setTodos(data)
-      } catch (err) {
-        console.error('Error loading todos:', err)
-        setError('Failed to load todos. Please try again.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadTodos()
-  }, [user])
-
-  // Initialize database once on component mount (only if user is signed in)
-  useEffect(() => {
-    const initializeOnce = async () => {
-      if (!user) return // Skip initialization for non-authenticated users
-      
-      try {
-        await todoOperations.initialize()
-      } catch (err) {
-        console.error('Error initializing database:', err)
-        setError('Failed to initialize database. Please refresh the page.')
-      }
-    }
-
-    initializeOnce()
-  }, [user])
-
-  // Midnight reset - save daily stats and clear all todos for ALL users
-  useEffect(() => {
-    const performMidnightReset = async () => {
-      try {
-        console.log('Performing midnight reset...')
-        
-        if (user) {
-          // Authenticated user - save to database and clear database todos
-          await todoOperations.saveDailyStats()
-          console.log('Daily stats saved to database')
-          
-          await todoOperations.clearAllTodos()
-          console.log('All todos cleared from database')
-        } else {
-          // Non-authenticated user - save to localStorage
-          await todoOperations.saveLocalDailyStats(todos)
-          console.log('Daily stats saved to localStorage')
-        }
-        
-        // Clear todos from local state for all users
-        setTodos([])
-        console.log('Local todos cleared - fresh start for new day!')
-        
-      } catch (error) {
-        console.error('Error during midnight reset:', error)
-        setError('Failed to reset for new day. Please refresh the page.')
-      }
-    }
-
-    const checkMidnight = () => {
-      const now = new Date()
-      if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
-        performMidnightReset()
-      }
-    }
-
-    const timer = setInterval(checkMidnight, 1000)
-    return () => clearInterval(timer)
-  }, [user, todos]) // Include todos in dependency array for non-authenticated users
-
-  const handleAddTodo = async (e) => {
-    e.preventDefault()
-    e.stopPropagation()
+  // Generate array of dates starting from today
+  const generateDates = (count) => {
+    const dates = []
+    const today = new Date()
     
-    if (!newTodo.trim()) {
-      setError('Please enter a todo task')
-      return
+    for (let i = 0; i < count; i++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() + i)
+      dates.push(date)
     }
-
-    try {
-      setError(null)
-      setLoading(true)
-      
-      console.log('Attempting to add todo:', newTodo.trim())
-      
-      if (user) {
-        // Authenticated user - save to database
-        const todo = await todoOperations.addTodo(newTodo.trim())
-        console.log('Todo added successfully:', todo)
-        
-        if (todo && todo.id) {
-          setTodos(prev => [todo, ...prev])
-          setNewTodo('')
-          console.log('Todo added to UI state')
-          
-          // Save daily stats after adding todo
-          try {
-            await todoOperations.saveDailyStats()
-            console.log('Daily stats saved after adding todo')
-          } catch (statsError) {
-            console.error('Error saving daily stats:', statsError)
-          }
-        } else {
-          throw new Error('Todo was not returned properly from database')
-        }
-      } else {
-        // Non-authenticated user - local only
-        const localTodo = {
-          id: Date.now(), // Use timestamp as temporary ID
-          task: newTodo.trim(),
-          completed: false,
-          created_at: new Date().toISOString(),
-          local: true // Mark as local todo
-        }
-        
-        setTodos(prev => [localTodo, ...prev])
-        setNewTodo('')
-        console.log('Local todo added:', localTodo)
-      }
-    } catch (err) {
-      console.error('Error in handleAddTodo:', err)
-      
-      // Handle specific error cases
-      if (err.code === '23505') {
-        setError('You already have a todo with this task for today.')
-      } else if (err.message.includes('Must be logged in')) {
-        setError('Please log in to save todos to the database.')
-      } else if (err.code === '42501') {
-        setError('Permission denied. Please check your account permissions.')
-      } else {
-        setError(err.message || 'Failed to add todo. Please try again.')
-      }
-    } finally {
-      setLoading(false)
-    }
+    
+    return dates
   }
 
-  const handleToggleTodo = async (id, completed) => {
-    try {
-      setError(null)
-      console.log('Toggling todo:', id, 'from', completed, 'to', !completed)
-      
-      if (user) {
-        // Authenticated user - update in database
-        await todoOperations.toggleTodo(id, !completed)
-        
-        // Save daily completion stats after the toggle
-        try {
-          await todoOperations.saveDailyStats()
-          console.log('Daily stats saved after toggle')
-        } catch (statsError) {
-          console.error('Error saving daily stats:', statsError)
-        }
-      }
-      
-      // Update local state for both authenticated and non-authenticated users
-      setTodos(prev => {
-        const updated = prev.map(todo => 
-          todo.id === id ? { ...todo, completed: !completed } : todo
-        )
-        console.log('Updated todos:', updated)
-        return updated
-      })
-      
-    } catch (err) {
-      console.error('Error updating todo:', err)
-      setError('Failed to update todo')
-    }
-  }
-
-  const handleDeleteTodo = async (id) => {
-    try {
-      setError(null)
-      console.log('Deleting todo:', id)
-      
-      if (user) {
-        // Authenticated user - delete from database
-        await todoOperations.deleteTodo(id)
-        
-        // Save daily stats after deleting todo
-        try {
-          await todoOperations.saveDailyStats()
-          console.log('Daily stats saved after deleting todo')
-        } catch (statsError) {
-          console.error('Error saving daily stats:', statsError)
-        }
-      }
-      
-      // Update local state for both authenticated and non-authenticated users
-      setTodos(prev => prev.filter(todo => todo.id !== id))
-      
-    } catch (err) {
-      console.error('Error deleting todo:', err)
-      setError('Failed to delete todo')
-    }
-  }
+  // Get dates based on screen size - fixed responsive breakpoints
+  const desktopDates = generateDates(5) // Fixed 5 days on desktop
+  const tabletDates = generateDates(3)  // Fixed 3 days on tablet
+  const mobileDates = generateDates(14) // Have 14 days available for mobile navigation
 
   const handleSignOut = async () => {
     try {
@@ -233,100 +35,147 @@ export default function Dashboard() {
       navigate('/login')
     } catch (err) {
       console.error('Error signing out:', err)
-      setError('Failed to sign out')
     }
   }
 
-  const completedCount = todos.filter(todo => todo.completed).length
-  const totalCount = todos.length
+  const handleMobilePrev = () => {
+    setMobileIndex(prev => Math.max(0, prev - 1))
+  }
+
+  const handleMobileNext = () => {
+    setMobileIndex(prev => Math.min(mobileDates.length - 1, prev + 1))
+  }
 
   return (
-    <DarkContainer>
-      <DateHeader />
-
-      <TodoInput
-        value={newTodo}
-        onChange={(e) => setNewTodo(e.target.value)}
-        onSubmit={handleAddTodo}
-        disabled={loading}
-      />
-
-      {/* Error Message */}
-      {error && (
-        <AlertMessage type="error">
-          {error}
-        </AlertMessage>
-      )}
-
-      {/* Todo List */}
-      <div className="space-y-3 mb-8">
-        {loading ? (
-          <p className="text-center text-gray-400 py-8">Loading todos...</p>
-        ) : todos.length === 0 ? (
-          <p className="text-center text-gray-400 py-8">
-            No tasks for today. Add one above!
-          </p>
-        ) : (
-          todos.map(todo => (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              onToggle={handleToggleTodo}
-              onDelete={handleDeleteTodo}
-              showLocalTag={!user}
-            />
-          ))
-        )}
+    <DarkContainer fullWidth>
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-light text-white">
+            📝 PercentDone
+          </h1>
+          
+          {/* Mobile Navigation - only visible on mobile */}
+          <div className="flex items-center space-x-2 md:hidden">
+            <button
+              onClick={handleMobilePrev}
+              disabled={mobileIndex === 0}
+              className="p-2 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed
+                       transition-colors duration-200"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+            
+            <span className="text-sm text-gray-400 min-w-[60px] text-center">
+              Day {mobileIndex + 1}
+            </span>
+            
+            <button
+              onClick={handleMobileNext}
+              disabled={mobileIndex === mobileDates.length - 1}
+              className="p-2 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed
+                       transition-colors duration-200"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <ProgressIndicator completed={completedCount} total={totalCount} />
+      {/* Multi-Day Layout */}
+      <div className="flex-1 overflow-hidden">
+        {/* Mobile: Single day with navigation */}
+        <div className="block md:hidden">
+          <DayCard 
+            key={mobileDates[mobileIndex].toISOString()}
+            date={mobileDates[mobileIndex]} 
+            isToday={mobileIndex === 0}
+          />
+        </div>
 
-      {/* Bottom Actions */}
-      <div className="space-y-3">
-        <DarkButton
-          onClick={() => navigate('/analytics')}
-          variant="secondary"
-        >
-          📊 View Analytics
-        </DarkButton>
-        
-        {user ? (
-          <div className="text-center space-y-3">
-            <p className="text-xs text-gray-500">Logged in as {user.email}</p>
-            <DarkButton
-              onClick={handleSignOut}
-              variant="outline"
-            >
-              Sign Out
-            </DarkButton>
-          </div>
-        ) : (
-          <>
-            <DarkButton
-              onClick={() => navigate('/login')}
-              variant="primary"
-            >
-              Sign In to Save Todos
-            </DarkButton>
-            
-            {/* Warning for non-authenticated users - moved to bottom */}
-            <div className="text-center pt-2">
-              <p className="text-xs text-yellow-400">
-                ⚠️ Sign in to save your todos permanently
+        {/* Tablet: 3 days side by side */}
+        <div className="hidden md:flex lg:hidden gap-4 pb-4">
+          {tabletDates.map((date, index) => (
+            <DayCard 
+              key={date.toISOString()}
+              date={date} 
+              isToday={index === 0}
+            />
+          ))}
+        </div>
+
+        {/* Desktop: Fixed 5 days */}
+        <div className="hidden lg:flex gap-6 pb-4">
+          {desktopDates.map((date, index) => (
+            <DayCard 
+              key={date.toISOString()}
+              date={date} 
+              isToday={index === 0}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Bottom Actions - Compact Layout */}
+      <div className="mt-4 pt-4 border-t border-gray-800">
+        <div className="flex items-center justify-between">
+          {/* Far Left - Brand Info */}
+          <div className="flex items-center min-w-[120px]">
+            <div className="text-left">
+              <p className="text-xs text-gray-500">
+                📝 PercentDone
+              </p>
+              <p className="text-xs text-gray-400">
+                by Sharib Masum
               </p>
             </div>
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* Small Logo/Title at Bottom */}
-      <div className="text-center mt-8 pt-4 border-t border-gray-800">
-        <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
-          📝 PercentDone - Created by Sharib Masum
-        </p>
-        <p className="text-xs text-gray-400 mt-2">
-          Track your daily tasks and see exactly how productive you are with percentages.
-        </p>
+          {/* Right - Analytics + Auth Actions */}
+          <div className="flex items-center space-x-4">
+            {/* Analytics Button */}
+            <DarkButton
+              onClick={() => navigate('/analytics')}
+              variant="secondary"
+              className="text-sm whitespace-nowrap"
+            >
+              📊 Analytics
+            </DarkButton>
+
+            {/* Auth Actions */}
+            {user ? (
+              <div className="text-right">
+                <p className="text-xs text-gray-500 mb-1">
+                  {user.email}
+                </p>
+                <DarkButton
+                  onClick={handleSignOut}
+                  variant="outline"
+                  className="text-sm"
+                >
+                  Sign Out
+                </DarkButton>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <DarkButton
+                  onClick={() => navigate('/login')}
+                  variant="primary"
+                  className="text-sm whitespace-nowrap"
+                >
+                  Sign In
+                </DarkButton>
+                <p className="text-xs text-yellow-400 md:whitespace-nowrap md:min-w-[180px] max-w-[120px] sm:max-w-none">
+                  ⚠️ Sign in to save permanently
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </DarkContainer>
   )

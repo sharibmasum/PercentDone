@@ -30,7 +30,7 @@ export default function Login() {
   }
 
   return (
-    <DarkContainer>
+    <DarkContainer variant="auth">
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-light text-white mb-2">Welcome back</h1>
