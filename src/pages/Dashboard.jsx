@@ -299,6 +299,9 @@ export default function Dashboard() {
         <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
           📝 PercentDone - Created by Sharib Masum
         </p>
+        <p className="text-xs text-gray-400 mt-2">
+          Track your daily tasks and see exactly how productive you are with percentages.
+        </p>
       </div>
     </DarkContainer>
   )
