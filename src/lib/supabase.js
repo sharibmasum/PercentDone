@@ -218,6 +218,90 @@ export const todoOperations = {
     }
   },
 
+  // Clear all todos for the current day (used at midnight reset)
+  async clearAllTodos() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return // Skip for non-authenticated users
+
+    const today = new Date().toISOString().split('T')[0]
+
+    console.log('Clearing all todos for user:', user.id, 'date:', today)
+
+    const { error } = await supabase
+      .from('todos')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('todo_date', today)
+
+    if (error) {
+      console.error('Error clearing todos:', error)
+      throw error
+    }
+    
+    console.log('All todos cleared successfully for date:', today)
+  },
+
+  // Save daily stats for non-authenticated users to localStorage
+  async saveLocalDailyStats(todos) {
+    const today = new Date().toISOString().split('T')[0]
+    
+    const totalTodos = todos.length
+    const completedTodos = todos.filter(todo => todo.completed).length
+    const completionPercentage = totalTodos > 0 
+      ? (completedTodos / totalTodos) * 100 
+      : 0
+
+    const statsData = {
+      date: today,
+      total_todos: totalTodos,
+      completed_todos: completedTodos,
+      completion_percentage: completionPercentage
+    }
+
+    // Get existing local stats
+    const existingStats = JSON.parse(localStorage.getItem('dailyStats') || '[]')
+    
+    // Remove existing entry for today if it exists
+    const filteredStats = existingStats.filter(stat => stat.date !== today)
+    
+    // Add today's stats
+    filteredStats.push(statsData)
+    
+    // Keep only last 30 days of stats
+    filteredStats.sort((a, b) => new Date(b.date) - new Date(a.date))
+    const recentStats = filteredStats.slice(0, 30)
+    
+    localStorage.setItem('dailyStats', JSON.stringify(recentStats))
+    console.log('Local daily stats saved:', statsData)
+  },
+
+  // Get local analytics data for non-authenticated users
+  async getLocalWeeklyAnalytics() {
+    const localStats = JSON.parse(localStorage.getItem('dailyStats') || '[]')
+    
+    // Calculate date range for past 7 days
+    const today = new Date()
+    const weeklyData = []
+    
+    for (let i = 6; i >= 0; i--) {
+      const currentDate = new Date(today)
+      currentDate.setDate(today.getDate() - i)
+      const dateString = currentDate.toISOString().split('T')[0]
+      
+      const existingData = localStats.find(stat => stat.date === dateString)
+      weeklyData.push({
+        date: dateString,
+        dayName: currentDate.toLocaleDateString('en-US', { weekday: 'short' }),
+        completion_percentage: existingData ? existingData.completion_percentage : 0,
+        total_todos: existingData ? existingData.total_todos : 0,
+        completed_todos: existingData ? existingData.completed_todos : 0
+      })
+    }
+
+    console.log('Local weekly analytics data:', weeklyData)
+    return weeklyData
+  },
+
   // Get weekly analytics data (past 7 days)
   async getWeeklyAnalytics() {
     const { data: { user } } = await supabase.auth.getUser()

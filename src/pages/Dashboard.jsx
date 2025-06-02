@@ -60,20 +60,45 @@ export default function Dashboard() {
     initializeOnce()
   }, [user])
 
-  // Save daily stats at midnight (only for authenticated users)
+  // Midnight reset - save daily stats and clear all todos for ALL users
   useEffect(() => {
-    if (!user) return // Skip for non-authenticated users
-    
+    const performMidnightReset = async () => {
+      try {
+        console.log('Performing midnight reset...')
+        
+        if (user) {
+          // Authenticated user - save to database and clear database todos
+          await todoOperations.saveDailyStats()
+          console.log('Daily stats saved to database')
+          
+          await todoOperations.clearAllTodos()
+          console.log('All todos cleared from database')
+        } else {
+          // Non-authenticated user - save to localStorage
+          await todoOperations.saveLocalDailyStats(todos)
+          console.log('Daily stats saved to localStorage')
+        }
+        
+        // Clear todos from local state for all users
+        setTodos([])
+        console.log('Local todos cleared - fresh start for new day!')
+        
+      } catch (error) {
+        console.error('Error during midnight reset:', error)
+        setError('Failed to reset for new day. Please refresh the page.')
+      }
+    }
+
     const checkMidnight = () => {
       const now = new Date()
       if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
-        todoOperations.saveDailyStats().catch(console.error)
+        performMidnightReset()
       }
     }
 
     const timer = setInterval(checkMidnight, 1000)
     return () => clearInterval(timer)
-  }, [user])
+  }, [user, todos]) // Include todos in dependency array for non-authenticated users
 
   const handleAddTodo = async (e) => {
     e.preventDefault()
