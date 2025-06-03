@@ -47,49 +47,68 @@ export default function Dashboard() {
   }
 
   return (
-    <DarkContainer fullWidth>
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-light text-white">
-            📝 PercentDone
-          </h1>
-          
-          {/* Mobile Navigation - only visible on mobile */}
-          <div className="flex items-center space-x-2 md:hidden">
-            <button
-              onClick={handleMobilePrev}
-              disabled={mobileIndex === 0}
-              className="p-2 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed
-                       transition-colors duration-200"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
+    <>
+      {/* Mobile Layout: Natural flow for iOS Safari */}
+      <div 
+        className="block md:hidden bg-gray-900 h-[100dvh] flex flex-col overflow-hidden"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          touchAction: 'none',
+          overscrollBehavior: 'none',
+          paddingBottom: 'env(safe-area-inset-bottom)'
+        }}
+      >
+        {/* Header - Fixed at top */}
+        <div className="bg-gray-900 px-3 py-2 flex-shrink-0 border-b border-gray-800">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-light text-white">
+              📝 PercentDone
+            </h1>
             
-            <span className="text-sm text-gray-400 min-w-[60px] text-center">
-              Day {mobileIndex + 1}
-            </span>
-            
-            <button
-              onClick={handleMobileNext}
-              disabled={mobileIndex === mobileDates.length - 1}
-              className="p-2 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed
-                       transition-colors duration-200"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
+            {/* Mobile Navigation */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleMobilePrev}
+                disabled={mobileIndex === 0}
+                className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed
+                         transition-colors duration-200"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </button>
+              
+              <span className="text-xs text-gray-400 min-w-[50px] text-center">
+                Day {mobileIndex + 1}
+              </span>
+              
+              <button
+                onClick={handleMobileNext}
+                disabled={mobileIndex === mobileDates.length - 1}
+                className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed
+                         transition-colors duration-200"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Multi-Day Layout */}
-      <div className="flex-1 overflow-hidden">
-        {/* Mobile: Single day with navigation */}
-        <div className="block md:hidden">
+        {/* Day card - Strictly constrained middle area */}
+        <div 
+          className="flex-1 px-3 overflow-hidden" 
+          style={{ 
+            maxHeight: 'calc(100dvh - 130px)',
+            touchAction: 'pan-y',
+            overscrollBehavior: 'contain'
+          }}
+        >
           <DayCard 
             key={mobileDates[mobileIndex].toISOString()}
             date={mobileDates[mobileIndex]} 
@@ -97,86 +116,147 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Tablet: 3 days side by side */}
-        <div className="hidden md:flex lg:hidden gap-4 pb-4">
-          {tabletDates.map((date, index) => (
-            <DayCard 
-              key={date.toISOString()}
-              date={date} 
-              isToday={index === 0}
-            />
-          ))}
-        </div>
-
-        {/* Desktop: Fixed 5 days */}
-        <div className="hidden lg:flex gap-6 pb-4">
-          {desktopDates.map((date, index) => (
-            <DayCard 
-              key={date.toISOString()}
-              date={date} 
-              isToday={index === 0}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Bottom Actions - Compact Layout */}
-      <div className="mt-4 pt-4 border-t border-gray-800">
-        <div className="flex items-center justify-between">
-          {/* Far Left - Brand Info */}
-          <div className="flex items-center min-w-[120px]">
-            <div className="text-left">
-              <p className="text-xs text-gray-500">
-                📝 PercentDone
-              </p>
-              <p className="text-xs text-gray-400">
-                by Sharib Masum
-              </p>
-            </div>
-          </div>
-
-          {/* Right - Analytics + Auth Actions */}
-          <div className="flex items-center space-x-4">
-            {/* Analytics Button */}
+        {/* Bottom Actions - Fixed at bottom with negative margin to overlap safe area */}
+        <div 
+          className="border-t border-gray-700 px-3 pt-2 flex-shrink-0" 
+          style={{ 
+            marginBottom: 'calc(-1 * env(safe-area-inset-bottom))',
+            paddingBottom: 'env(safe-area-inset-bottom)'
+          }}
+        >
+          <div className="flex items-center justify-center gap-3 mb-1">
             <DarkButton
               onClick={() => navigate('/analytics')}
               variant="secondary"
-              className="text-sm whitespace-nowrap"
+              className="!py-2 text-xs flex-1 max-w-[130px]"
             >
               📊 Analytics
             </DarkButton>
-
-            {/* Auth Actions */}
+            
             {user ? (
-              <div className="text-right">
-                <p className="text-xs text-gray-500 mb-1">
-                  {user.email}
-                </p>
-                <DarkButton
-                  onClick={handleSignOut}
-                  variant="outline"
-                  className="text-sm"
-                >
-                  Sign Out
-                </DarkButton>
-              </div>
+              <DarkButton
+                onClick={handleSignOut}
+                variant="outline"
+                className="!py-2 text-xs flex-1 max-w-[130px]"
+              >
+                Sign Out
+              </DarkButton>
             ) : (
-              <div className="flex items-center space-x-4">
-                <DarkButton
-                  onClick={() => navigate('/login')}
-                  variant="primary"
-                  className="text-sm whitespace-nowrap"
-                >
-                  Sign In
-                </DarkButton>
-                <p className="text-xs text-yellow-400 md:whitespace-nowrap md:min-w-[180px] max-w-[120px] sm:max-w-none">
-                  ⚠️ Sign in to save permanently
-                </p>
-              </div>
+              <DarkButton
+                onClick={() => navigate('/login')}
+                variant="primary"
+                className="!py-2 text-xs flex-1 max-w-[130px]"
+              >
+                Sign In to Save
+              </DarkButton>
             )}
+          </div>
+          
+          {/* Brand info */}
+          <div className="text-center" style={{ paddingBottom: '0px', marginBottom: '0px' }}>
+            <p className="text-xs text-gray-500" style={{ marginBottom: '0px' }}>
+              📝 PercentDone by Sharib Masum
+            </p>
           </div>
         </div>
       </div>
-    </DarkContainer>
+
+      {/* Desktop/Tablet Layout: Fixed bottom elements */}
+      <div className="hidden md:block h-screen max-h-screen overflow-hidden bg-gray-900">
+        <DarkContainer fullWidth className="!py-6 !px-4 h-full flex flex-col">
+          {/* Header */}
+          <div className="mb-6 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-light text-white">
+                📝 PercentDone
+              </h1>
+            </div>
+          </div>
+
+          {/* Multi-Day Layout */}
+          <div className="flex-1 overflow-hidden min-h-0">
+            {/* Tablet: 3 days side by side */}
+            <div className="flex lg:hidden gap-4 pb-4 h-full">
+              {tabletDates.map((date, index) => (
+                <DayCard 
+                  key={date.toISOString()}
+                  date={date} 
+                  isToday={index === 0}
+                />
+              ))}
+            </div>
+
+            {/* Desktop: Fixed 5 days */}
+            <div className="hidden lg:flex gap-6 pb-4 h-full">
+              {desktopDates.map((date, index) => (
+                <DayCard 
+                  key={date.toISOString()}
+                  date={date} 
+                  isToday={index === 0}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Bottom Actions - Locked at bottom */}
+          <div className="mt-4 pt-4 border-t border-gray-800 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              {/* Far Left - Brand Info */}
+              <div className="flex items-center min-w-[120px]">
+                <div className="text-left">
+                  <p className="text-xs text-gray-500">
+                    📝 PercentDone
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    by Sharib Masum
+                  </p>
+                </div>
+              </div>
+
+              {/* Right - Analytics + Auth Actions */}
+              <div className="flex items-center space-x-4">
+                {/* Analytics Button */}
+                <DarkButton
+                  onClick={() => navigate('/analytics')}
+                  variant="secondary"
+                  className="text-sm whitespace-nowrap"
+                >
+                  📊 Analytics
+                </DarkButton>
+
+                {/* Auth Actions */}
+                {user ? (
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-1">
+                      {user.email}
+                    </p>
+                    <DarkButton
+                      onClick={handleSignOut}
+                      variant="outline"
+                      className="text-sm"
+                    >
+                      Sign Out
+                    </DarkButton>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-4">
+                    <DarkButton
+                      onClick={() => navigate('/login')}
+                      variant="primary"
+                      className="text-sm whitespace-nowrap"
+                    >
+                      Sign In
+                    </DarkButton>
+                    <p className="text-xs text-yellow-400 md:whitespace-nowrap md:min-w-[180px] max-w-[120px] sm:max-w-none">
+                      ⚠️ Sign in to save permanently
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </DarkContainer>
+      </div>
+    </>
   )
 } 
