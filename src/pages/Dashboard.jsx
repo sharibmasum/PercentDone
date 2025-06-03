@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import DarkContainer from '../components/DarkContainer'
@@ -9,6 +9,17 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const [mobileIndex, setMobileIndex] = useState(0) // For mobile navigation
+
+  // Add/remove mobile class for scroll prevention
+  useEffect(() => {
+    // Add class on mount (mobile scroll prevention)
+    document.body.classList.add('dashboard-mobile')
+    
+    // Remove class on unmount (restore normal scrolling)
+    return () => {
+      document.body.classList.remove('dashboard-mobile')
+    }
+  }, [])
 
   // Generate array of dates starting from today
   const generateDates = (count) => {
