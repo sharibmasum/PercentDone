@@ -1,4 +1,6 @@
-export default function TodoInput({ value, onChange, onSubmit, disabled = false, placeholder = "Add a task..." }) {
+import { memo } from 'react'
+
+export default memo(function TodoInput({ value, onChange, onSubmit, disabled = false, placeholder = "Add a task..." }) {
   return (
     <div className="mb-6">
       <form onSubmit={onSubmit} noValidate>
@@ -20,4 +22,4 @@ export default function TodoInput({ value, onChange, onSubmit, disabled = false,
       </form>
     </div>
   )
-} 
+}) 

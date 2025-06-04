@@ -9,35 +9,27 @@ export default function BarChart({ data }) {
     )
   }
 
-  const maxPercentage = 100 // Always use 100 as max for percentage charts
+  const maxPercentage = 100
   
-  console.log('BarChart data:', data)
-
   return (
     <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
       <h3 className="text-lg font-semibold mb-6 text-center text-white">Weekly Completion Percentage</h3>
       
-      {/* Container with proper spacing */}
       <div className="pt-8 pb-4">
         <div className="flex items-end justify-between h-64 mb-4 bg-gray-900 rounded p-2">
-          {data.map((day, index) => {
+          {data.map((day) => {
             const height = Math.max((day.completion_percentage / maxPercentage) * 100, 2)
             const isToday = day.date === new Date().toISOString().split('T')[0]
             
-            console.log(`Day ${day.dayName}: ${day.completion_percentage}% -> height: ${height}%`)
-            
             return (
               <div key={day.date} className="flex flex-col items-center flex-1 h-full">
-                {/* Bar container with relative positioning */}
                 <div className="relative w-full max-w-12 h-full flex flex-col justify-end">
-                  {/* Percentage label above bar */}
                   {day.completion_percentage > 0 && (
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 text-xs font-bold text-gray-300 whitespace-nowrap z-10">
                       {Math.round(day.completion_percentage)}%
                     </div>
                   )}
                   
-                  {/* The actual bar */}
                   <div
                     className={`w-full rounded-t transition-all duration-300 shadow-sm ${
                       isToday 
@@ -50,12 +42,11 @@ export default function BarChart({ data }) {
                     }`}
                     style={{ 
                       height: `${height}%`,
-                      minHeight: '4px' // Ensure even 0% shows something
+                      minHeight: '4px'
                     }}
                   />
                 </div>
                 
-                {/* Day label below */}
                 <div className="mt-3 text-center">
                   <div className={`text-sm font-medium ${isToday ? 'text-blue-400' : 'text-gray-300'}`}>
                     {day.dayName}
@@ -74,8 +65,6 @@ export default function BarChart({ data }) {
           })}
         </div>
       </div>
-
-      {/* Legend */}
       <div className="flex justify-center space-x-4 text-xs">
         <div className="flex items-center">
           <div className="w-3 h-3 bg-green-500 rounded mr-1"></div>

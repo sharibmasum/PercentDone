@@ -1,46 +1,25 @@
 import { createClient } from '@supabase/supabase-js'
 
+// Import the progress update emitter
+const emitProgressUpdate = (date) => {
+  const event = new CustomEvent('todoUpdated', { detail: { date } })
+  window.dispatchEvent(event)
+}
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Initialize database tables
-export const initializeDatabase = async () => {
-  try {
-    // Check if tables exist
-    const { error: tablesError } = await supabase.rpc('create_tables')
-    if (tablesError) {
-      console.error('Error creating tables:', tablesError)
-      throw tablesError
-    }
-    console.log('Database initialized successfully')
-  } catch (error) {
-    console.error('Error initializing database:', error)
-    throw error
-  }
-}
-
-// Todo operations
 export const todoOperations = {
-  // Initialize database before any operations
-  async initialize() {
-    try {
-      await initializeDatabase()
-    } catch (error) {
-      console.error('Failed to initialize database:', error)
-      throw error
-    }
-  },
-
   // Get todos for the current day
-  async getTodos() {
+  async getTodosToday() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      console.log('No user authenticated, returning empty array')
-      return [] // Return empty array for non-authenticated users
-    }
     
+    if (!user) {
+      return []
+    }
+
     const today = new Date().toISOString().split('T')[0]
     
     const { data, error } = await supabase
@@ -49,116 +28,87 @@ export const todoOperations = {
       .eq('user_id', user.id)
       .eq('todo_date', today)
       .order('created_at', { ascending: false })
-    
-    if (error) throw error
+
+    if (error) {
+      console.error('Error fetching today\'s todos:', error)
+      return []
+    }
+
     return data || []
   },
 
-  // Get todos for a specific date
   async getTodosByDate(dateString) {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      console.log('No user authenticated, returning empty array')
-      return [] // Return empty array for non-authenticated users
-    }
     
+    if (!user) {
+      return []
+    }
+
     const { data, error } = await supabase
       .from('todos')
       .select('*')
       .eq('user_id', user.id)
       .eq('todo_date', dateString)
       .order('created_at', { ascending: false })
-    
-    if (error) throw error
+
+    if (error) {
+      console.error('Error fetching todos by date:', error)
+      return []
+    }
+
     return data || []
   },
 
-  // Add a new todo
-  async addTodo(task) {
+  async addTodo(task, dateString) {
     const { data: { user }, error: userError } = await supabase.auth.getUser()
     
     if (userError) {
       console.error('Error getting user:', userError)
-      throw new Error('Failed to get user information')
+      throw userError
     }
-    
+
     if (!user) {
-      throw new Error('Must be logged in to add todos to database')
+      throw new Error('No authenticated user')
     }
-    
-    const today = new Date().toISOString().split('T')[0]
-    
-    console.log('Adding todo for user:', user.id, 'task:', task, 'date:', today)
-    
-    const todoData = {
-      task: task.trim(),
-      user_id: user.id,
-      completed: false,
-      todo_date: today
-    }
-    
+
     const { data, error } = await supabase
       .from('todos')
-      .insert([todoData])
-      .select('*')
+      .insert([
+        {
+          task: task.trim(),
+          completed: false,
+          user_id: user.id,
+          todo_date: dateString
+        }
+      ])
+      .select()
       .single()
-    
+
     if (error) {
-      console.error('Error inserting todo:', error)
-      console.error('Todo data attempted:', todoData)
+      console.error('Error adding todo:', error)
       throw error
     }
+
+    // Update local storage and emit progress update
+    const allTodosForDate = await this.getTodosByDate(dateString)
+    localStorage.setItem(`todos_${dateString}`, JSON.stringify(allTodosForDate))
     
-    console.log('Successfully inserted todo:', data)
+    // Save daily tracking stats
+    await this.saveDailyTrackingStats(dateString, allTodosForDate)
+    
+    // Emit progress update
+    emitProgressUpdate(new Date(dateString))
+    
     return data
   },
 
-  // Add a new todo for a specific date
-  async addTodoForDate(task, dateString) {
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-    if (userError) {
-      console.error('Error getting user:', userError)
-      throw new Error('Failed to get user information')
-    }
-    
-    if (!user) {
-      throw new Error('Must be logged in to add todos to database')
-    }
-    
-    console.log('Adding todo for user:', user.id, 'task:', task, 'date:', dateString)
-    
-    const todoData = {
-      task: task.trim(),
-      user_id: user.id,
-      completed: false,
-      todo_date: dateString
-    }
-    
-    const { data, error } = await supabase
-      .from('todos')
-      .insert([todoData])
-      .select('*')
-      .single()
-    
-    if (error) {
-      console.error('Error inserting todo:', error)
-      console.error('Todo data attempted:', todoData)
-      throw error
-    }
-    
-    console.log('Successfully inserted todo:', data)
-    return data
-  },
-
-  // Update a todo
   async updateTodo(id, updates) {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      console.log('No user authenticated, skipping database update')
-      return null // Return null instead of throwing error
-    }
     
+    if (!user) {
+      throw new Error('No authenticated user')
+    }
+
     const { data, error } = await supabase
       .from('todos')
       .update(updates)
@@ -166,216 +116,190 @@ export const todoOperations = {
       .eq('user_id', user.id)
       .select()
       .single()
+
+    if (error) {
+      console.error('Error updating todo:', error)
+      throw error
+    }
+
+    // Update local storage and emit progress update
+    const todoDate = data.todo_date
+    const allTodosForDate = await this.getTodosByDate(todoDate)
+    localStorage.setItem(`todos_${todoDate}`, JSON.stringify(allTodosForDate))
     
-    if (error) throw error
+    // Save daily tracking stats
+    await this.saveDailyTrackingStats(todoDate, allTodosForDate)
+    
+    // Emit progress update
+    emitProgressUpdate(new Date(todoDate))
+    
     return data
   },
 
-  // Delete a todo
   async deleteTodo(id) {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      console.log('No user authenticated, skipping database delete')
-      return // Return early instead of throwing error
-    }
     
+    if (!user) {
+      throw new Error('No authenticated user')
+    }
+
+    // First get the todo to find its date
+    const { data: todoToDelete } = await supabase
+      .from('todos')
+      .select('todo_date')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
     const { error } = await supabase
       .from('todos')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Error deleting todo:', error)
+      throw error
+    }
+
+    // Update local storage and emit progress update
+    const todoDate = todoToDelete.todo_date
+    const allTodosForDate = await this.getTodosByDate(todoDate)
+    localStorage.setItem(`todos_${todoDate}`, JSON.stringify(allTodosForDate))
     
-    if (error) throw error
+    // Save daily tracking stats
+    await this.saveDailyTrackingStats(todoDate, allTodosForDate)
+    
+    // Emit progress update
+    emitProgressUpdate(new Date(todoDate))
+
+    return true
   },
 
-  // Toggle todo completion status
   async toggleTodo(id, completed) {
-    return this.updateTodo(id, { completed })
+    const result = await this.updateTodo(id, { completed })
+    return result
   },
 
-  // Save daily completion stats
-  async saveDailyStats() {
+  // Clear all todos from previous days (before today)
+  async clearPreviousDaysTodos() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return // Skip for non-authenticated users
+    
+    if (!user) {
+      return
+    }
 
     const today = new Date().toISOString().split('T')[0]
-
-    // Get today's todos
-    const { data: todos, error: fetchError } = await supabase
-      .from('todos')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('todo_date', today)
-
-    if (fetchError) throw fetchError
-
-    const totalTodos = todos.length
-    const completedTodos = todos.filter(todo => todo.completed).length
-    const completionPercentage = totalTodos > 0 
-      ? (completedTodos / totalTodos) * 100 
-      : 0
-
-    console.log('Saving daily stats:', {
-      user_id: user.id,
-      date: today,
-      total_todos: totalTodos,
-      completed_todos: completedTodos,
-      completion_percentage: completionPercentage
-    })
-
-    // Check if record already exists for this user and date
-    const { data: existingRecord, error: checkError } = await supabase
-      .from('daily_tracker')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('date', today)
-      .single()
-
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found" error
-      console.error('Error checking existing record:', checkError)
-      throw checkError
-    }
-
-    const statsData = {
-      user_id: user.id,
-      date: today,
-      total_todos: totalTodos,
-      completed_todos: completedTodos,
-      completion_percentage: completionPercentage
-    }
-
-    if (existingRecord) {
-      // Update existing record
-      const { error: updateError } = await supabase
-        .from('daily_tracker')
-        .update({
-          total_todos: totalTodos,
-          completed_todos: completedTodos,
-          completion_percentage: completionPercentage
-        })
-        .eq('user_id', user.id)
-        .eq('date', today)
-
-      if (updateError) {
-        console.error('Error updating daily stats:', updateError)
-        throw updateError
-      }
-      console.log('Daily stats updated successfully')
-    } else {
-      // Insert new record
-      const { error: insertError } = await supabase
-        .from('daily_tracker')
-        .insert([statsData])
-
-      if (insertError) {
-        console.error('Error inserting daily stats:', insertError)
-        throw insertError
-      }
-      console.log('Daily stats inserted successfully')
-    }
-  },
-
-  // Clear all todos for the current day (used at midnight reset)
-  async clearAllTodos() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return // Skip for non-authenticated users
-
-    const today = new Date().toISOString().split('T')[0]
-
-    console.log('Clearing all todos for user:', user.id, 'date:', today)
 
     const { error } = await supabase
       .from('todos')
       .delete()
       .eq('user_id', user.id)
-      .eq('todo_date', today)
+      .lt('todo_date', today)
 
     if (error) {
-      console.error('Error clearing todos:', error)
-      throw error
+      console.error('Error clearing previous days todos from database:', error)
     }
+
+    // Also clear from localStorage
+    const allDates = this.getAllStoredDates()
     
-    console.log('All todos cleared successfully for date:', today)
+    for (const dateString of allDates) {
+      if (dateString < today) {
+        localStorage.removeItem(`todos_${dateString}`)
+      }
+    }
+
+    // Clean up old daily stats but keep recent ones
+    const existingStats = JSON.parse(localStorage.getItem('dailyStats') || '[]')
+    const recentStats = existingStats.filter(stat => stat.date >= today)
+    localStorage.setItem('dailyStats', JSON.stringify(recentStats))
   },
 
-  // Save daily stats for non-authenticated users to localStorage
-  async saveLocalDailyStats(todos) {
-    const today = new Date().toISOString().split('T')[0]
-    
+  // Helper function to get all stored dates from localStorage
+  getAllStoredDates() {
+    const dates = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('todos_')) {
+        const dateString = key.replace('todos_', '')
+        dates.push(dateString)
+      }
+    }
+    return dates
+  },
+
+  // Save daily tracking stats to database (for authenticated users)
+  async saveDailyTrackingStats(dateString, todos) {
     const totalTodos = todos.length
     const completedTodos = todos.filter(todo => todo.completed).length
-    const completionPercentage = totalTodos > 0 
-      ? (completedTodos / totalTodos) * 100 
+    const completionPercentage = totalTodos > 0
+      ? Math.round((completedTodos / totalTodos) * 100)
       : 0
 
-    const statsData = {
-      date: today,
+    const statData = {
+      date: dateString,
       total_todos: totalTodos,
       completed_todos: completedTodos,
       completion_percentage: completionPercentage
     }
 
-    // Get existing local stats
+    // Save to localStorage
     const existingStats = JSON.parse(localStorage.getItem('dailyStats') || '[]')
     
-    // Remove existing entry for today if it exists
-    const filteredStats = existingStats.filter(stat => stat.date !== today)
+    // Remove any existing entry for this date
+    const filteredStats = existingStats.filter(stat => stat.date !== dateString)
     
-    // Add today's stats
-    filteredStats.push(statsData)
+    // Add the new stat
+    filteredStats.push(statData)
     
-    // Keep only last 30 days of stats
-    filteredStats.sort((a, b) => new Date(b.date) - new Date(a.date))
+    // Keep only recent stats (last 30 days)
     const recentStats = filteredStats.slice(0, 30)
     
     localStorage.setItem('dailyStats', JSON.stringify(recentStats))
-    console.log('Local daily stats saved:', statsData)
+
+    // Also save to database if user is authenticated
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        const targetDate = dateString || new Date().toISOString().split('T')[0]
+        
+        const totalTodos = todos.length
+        const completedTodos = todos.filter(todo => todo.completed).length
+        const completionPercentage = totalTodos > 0
+          ? Math.round((completedTodos / totalTodos) * 100)
+          : 0
+
+        const { error } = await supabase
+          .from('daily_tracking_stats')
+          .upsert({
+            user_id: user.id,
+            date: targetDate,
+            total_todos: totalTodos,
+            completed_todos: completedTodos,
+            completion_percentage: completionPercentage
+          })
+
+        if (error) {
+          console.error('Error saving daily tracking stats:', error)
+        }
+      }
+    } catch (error) {
+      console.error('Error in database save:', error)
+    }
   },
 
-  // Get local analytics data for non-authenticated users
-  async getLocalWeeklyAnalytics() {
-    const localStats = JSON.parse(localStorage.getItem('dailyStats') || '[]')
+  // Get daily tracking stats for a specific date range
+  async getDailyTrackingStats(startDate, endDate) {
+    const { data: { user } } = await supabase.auth.getUser()
     
-    // Calculate date range for past 7 days
-    const today = new Date()
-    const weeklyData = []
-    
-    for (let i = 6; i >= 0; i--) {
-      const currentDate = new Date(today)
-      currentDate.setDate(today.getDate() - i)
-      const dateString = currentDate.toISOString().split('T')[0]
-      
-      const existingData = localStats.find(stat => stat.date === dateString)
-      weeklyData.push({
-        date: dateString,
-        dayName: currentDate.toLocaleDateString('en-US', { weekday: 'short' }),
-        completion_percentage: existingData ? existingData.completion_percentage : 0,
-        total_todos: existingData ? existingData.total_todos : 0,
-        completed_todos: existingData ? existingData.completed_todos : 0
-      })
+    if (!user) {
+      return []
     }
 
-    console.log('Local weekly analytics data:', weeklyData)
-    return weeklyData
-  },
-
-  // Get weekly analytics data (past 7 days)
-  async getWeeklyAnalytics() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return []
-
-    // Calculate date range for past 7 days
-    const today = new Date()
-    const sevenDaysAgo = new Date(today)
-    sevenDaysAgo.setDate(today.getDate() - 6) // Include today + 6 previous days = 7 days total
-
-    const startDate = sevenDaysAgo.toISOString().split('T')[0]
-    const endDate = today.toISOString().split('T')[0]
-
-    console.log('Fetching analytics from', startDate, 'to', endDate)
-
     const { data, error } = await supabase
-      .from('daily_tracker')
+      .from('daily_tracking_stats')
       .select('*')
       .eq('user_id', user.id)
       .gte('date', startDate)
@@ -383,28 +307,106 @@ export const todoOperations = {
       .order('date', { ascending: true })
 
     if (error) {
-      console.error('Error fetching weekly analytics:', error)
-      throw error
+      console.error('Error fetching daily tracking stats:', error)
+      return []
     }
 
-    // Fill in missing days with 0% completion
+    return data || []
+  },
+
+  // Get weekly analytics from database (for authenticated users)
+  async getWeeklyAnalytics() {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      // Return mock data for unauthenticated users
+      return this.getMockWeeklyData()
+    }
+
+    const today = new Date()
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(today.getDate() - 6)
+
+    const startDate = sevenDaysAgo.toISOString().split('T')[0]
+    const endDate = today.toISOString().split('T')[0]
+
+    // Get stats from database
+    const dbStats = await this.getDailyTrackingStats(startDate, endDate)
+
+    // Fill in missing days with data from localStorage or zeros
     const weeklyData = []
+    const currentDate = new Date(today)
+    for (let i = 6; i >= 0; i--) {
+      const dateString = currentDate.toISOString().split('T')[0]
+      
+      const existingData = dbStats.find(stat => stat.date === dateString)
+      
+      if (existingData) {
+        weeklyData.push({
+          date: dateString,
+          dayName: currentDate.toLocaleDateString('en-US', { weekday: 'short' }),
+          total_todos: existingData.total_todos,
+          completed_todos: existingData.completed_todos,
+          completion_percentage: existingData.completion_percentage
+        })
+      } else {
+        // Try to get from localStorage
+        const localData = this.getLocalStatsForDate(dateString)
+        weeklyData.push({
+          date: dateString,
+          dayName: currentDate.toLocaleDateString('en-US', { weekday: 'short' }),
+          total_todos: localData.total_todos,
+          completed_todos: localData.completed_todos,
+          completion_percentage: localData.completion_percentage
+        })
+      }
+      
+      currentDate.setDate(currentDate.getDate() - 1)
+    }
+
+    return weeklyData.reverse()
+  },
+
+  getLocalStatsForDate(dateString) {
+    const localStats = JSON.parse(localStorage.getItem('dailyStats') || '[]')
+    
+    // Find stats for the specific date
+    const existingData = localStats.find(stat => stat.date === dateString)
+    
+    if (existingData) {
+      return {
+        total_todos: existingData.total_todos,
+        completed_todos: existingData.completed_todos,
+        completion_percentage: existingData.completion_percentage
+      }
+    }
+    
+    return { total_todos: 0, completed_todos: 0, completion_percentage: 0 }
+  },
+
+  getMockWeeklyData() {
+    const weeklyData = []
+    const today = new Date()
+    
     for (let i = 6; i >= 0; i--) {
       const currentDate = new Date(today)
       currentDate.setDate(today.getDate() - i)
       const dateString = currentDate.toISOString().split('T')[0]
       
-      const existingData = data.find(d => d.date === dateString)
+      // Generate realistic mock data
+      const totalTodos = Math.floor(Math.random() * 8) + 2 // 2-9 todos per day
+      const completedTodos = Math.floor(totalTodos * (0.5 + Math.random() * 0.5)) // 50-100% completion
+      const completionPercentage = totalTodos > 0 ? Math.round((completedTodos / totalTodos) * 100) : 0
+      
       weeklyData.push({
         date: dateString,
         dayName: currentDate.toLocaleDateString('en-US', { weekday: 'short' }),
-        completion_percentage: existingData ? existingData.completion_percentage : 0,
-        total_todos: existingData ? existingData.total_todos : 0,
-        completed_todos: existingData ? existingData.completed_todos : 0
+        total_todos: totalTodos,
+        completed_todos: completedTodos,
+        completion_percentage: completionPercentage
       })
     }
-
-    console.log('Weekly analytics data:', weeklyData)
+    
     return weeklyData
   }
 } 

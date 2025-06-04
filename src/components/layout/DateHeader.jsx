@@ -1,19 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 
-export default function DateHeader({ date = new Date(), showTime = true }) {
+function DateHeader({ date = new Date(), showTime = false }) {
   const [currentDateTime, setCurrentDateTime] = useState(new Date())
 
   useEffect(() => {
     if (showTime) {
+      setCurrentDateTime(new Date())
+      
+    
       const timer = setInterval(() => {
         setCurrentDateTime(new Date())
-      }, 1000)
+      }, 30000) 
 
       return () => clearInterval(timer)
     }
   }, [showTime])
 
-  // Use the passed date for display, but current time if showTime is true
   const displayDate = date
   const displayTime = showTime ? currentDateTime : date
 
@@ -28,7 +30,17 @@ export default function DateHeader({ date = new Date(), showTime = true }) {
           day: 'numeric', 
           year: 'numeric' 
         })}
+        {showTime && (
+          <span className="ml-2 text-blue-400">
+            {displayTime.toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit'
+            })} • Live
+          </span>
+        )}
       </p>
     </div>
   )
-} 
+}
+
+export default memo(DateHeader) 

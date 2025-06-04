@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
-import DarkContainer from '../components/DarkContainer'
-import DarkInput from '../components/DarkInput'
-import DarkButton from '../components/DarkButton'
-import AlertMessage from '../components/AlertMessage'
+import DarkContainer from '../components/ui/DarkContainer'
+import DarkInput from '../components/ui/DarkInput'
+import DarkButton from '../components/ui/DarkButton'
+import AlertMessage from '../components/ui/AlertMessage'
 
 export default function Login() {
   const navigate = useNavigate()

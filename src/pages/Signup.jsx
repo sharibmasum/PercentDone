@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
-import DarkContainer from '../components/DarkContainer'
-import DarkInput from '../components/DarkInput'
-import DarkButton from '../components/DarkButton'
-import AlertMessage from '../components/AlertMessage'
+import DarkContainer from '../components/ui/DarkContainer'
+import DarkInput from '../components/ui/DarkInput'
+import DarkButton from '../components/ui/DarkButton'
+import AlertMessage from '../components/ui/AlertMessage'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -38,7 +38,6 @@ export default function Signup() {
 
   return (
     <DarkContainer variant="auth">
-      {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-light text-white mb-2">Join PercentDone</h1>
         <p className="text-gray-400 text-sm">Create your account to start tracking progress</p>
@@ -94,7 +93,7 @@ export default function Signup() {
         </DarkButton>
       </form>
 
-      {/* Footer */}
+        
       <div className="text-center mt-8">
         <p className="text-gray-400 text-sm">
           Already have an account?{' '}
