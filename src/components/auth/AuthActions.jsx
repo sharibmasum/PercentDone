@@ -10,20 +10,20 @@ function AuthActions({
 }) {
   if (variant === "mobile") {
     return (
-      <div className="flex items-center justify-center gap-4 mb-4">
+      <div className="flex items-center gap-2">
         <DarkButton
           onClick={onAnalytics}
           variant="secondary"
-          className="!py-2.5 text-sm flex-1 max-w-[140px]"
+          className="!py-1.5 !px-3 text-sm !w-auto whitespace-nowrap"
         >
-          📊 Analytics
+          📊
         </DarkButton>
         
         {user ? (
           <DarkButton
             onClick={onSignOut}
             variant="outline"
-            className="!py-2.5 text-sm flex-1 max-w-[140px]"
+            className="!py-1.5 !px-3 text-sm !w-auto whitespace-nowrap"
           >
             Sign Out
           </DarkButton>
@@ -31,9 +31,9 @@ function AuthActions({
           <DarkButton
             onClick={onSignIn}
             variant="primary"
-            className="!py-2.5 text-sm flex-1 max-w-[140px]"
+            className="!py-1.5 !px-3 text-sm !w-auto whitespace-nowrap"
           >
-            Sign In to Save
+            Sign In
           </DarkButton>
         )}
       </div>

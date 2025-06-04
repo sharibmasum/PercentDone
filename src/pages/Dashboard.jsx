@@ -10,6 +10,8 @@ import DayCardSkeleton from '../components/ui/DayCardSkeleton'
 import DayCardContainer from '../components/todo/DayCardContainer'
 import AppHeader from '../components/layout/AppHeader'
 import AppFooter from '../components/layout/AppFooter'
+import AuthActions from '../components/auth/AuthActions'
+import ProgressBar from '../components/ui/ProgressBar'
 
 
 const DayCard = lazy(() => import('../components/todo/DayCard'))
@@ -117,11 +119,10 @@ function Dashboard() {
 
 
   const MemoizedDayCard = useMemo(() => {
-    return memo(({ date, isToday }) => (
+    return memo((props) => (
       <Suspense fallback={<DayCardSkeleton />}>
         <DayCard 
-          date={date} 
-          isToday={isToday}
+          {...props}
           isFocused={true}
         />
       </Suspense>
@@ -140,42 +141,49 @@ function Dashboard() {
         className="block md:hidden bg-gray-900 h-[100dvh] relative"
         style={mobileStyles.container}
       >
-        <AppHeader variant="mobile">
-          <MobileNavigation
-            currentIndex={mobileIndex}
-            onPrev={handlePrev}
-            onNext={handleNext}
-            canGoPrev={canGoPrev}
-            canGoNext={canGoNext}
-          />
-        </AppHeader>
+        <div className="bg-gray-900 border-b border-gray-800 px-3 py-2">
+          <div className="flex items-center justify-between">
+            <h1 className="text-base font-light text-white">
+              📝 PercentDone
+            </h1>
+            <AuthActions
+              user={user}
+              onSignOut={handleSignOut}
+              onSignIn={handleSignIn}
+              onAnalytics={handleAnalytics}
+              variant="mobile"
+            />
+          </div>
+        </div>
 
         <div 
-          className="px-3 overflow-y-auto custom-scrollbar"
+          className="px-2 mt-2 overflow-y-auto custom-scrollbar"
           style={{ 
             ...mobileStyles.content,
-            paddingBottom: '220px',
-            height: 'calc(100dvh - 60px)'
+            paddingBottom: '100px',
+            height: 'calc(100dvh - 48px)'
           }}
         >
           <MemoizedDayCard
             key={mobileKey}
             date={dates.mobile[mobileIndex]}
             isToday={mobileIndex === 0}
+            mobileIndex={mobileIndex}
+            handlePrev={handlePrev}
+            handleNext={handleNext}
+            canGoPrev={canGoPrev}
+            canGoNext={canGoNext}
           />
         </div>
 
-        <AppFooter
-          variant="mobile"
-          progress={mobileProgress}
-          user={user}
-          onSignOut={handleSignOut}
-          onSignIn={handleSignIn}
-          onAnalytics={handleAnalytics}
+        <div 
+          className="absolute bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 px-4 py-2"
           style={{ 
             paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' 
           }}
-        />
+        >
+          <ProgressBar progress={mobileProgress} />
+        </div>
       </div>
 
 
