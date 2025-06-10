@@ -5,7 +5,6 @@ export function useDateGeneration() {
     const generateDates = (count) => {
       const dates = []
       const today = new Date()
-      // Set time to midnight to ensure consistent date comparisons
       today.setHours(0, 0, 0, 0)
       
       for (let i = 0; i < count; i++) {
@@ -20,10 +19,9 @@ export function useDateGeneration() {
     return {
       desktop: generateDates(5), 
       tablet: generateDates(3),  
-      mobile: generateDates(7)  // Reduced from 14 to 7 for better performance
+      mobile: generateDates(7)
     }
   }, [
-    // Only regenerate dates when the day changes
     new Date().toDateString()
   ])
 

@@ -3,29 +3,31 @@ import ProgressBar from '../ui/ProgressBar'
 import AuthActions from '../auth/AuthActions'
 
 const AppFooter = memo(({ 
-  variant = 'desktop', // 'desktop' | 'mobile'
+  variant = 'desktop', 
   progress,
   user,
   onSignOut,
   onSignIn,
   onAnalytics,
+  isToday = false,
   style
 }) => {
   const isMobile = variant === 'mobile'
   
   return (
     <div 
-      className={`bg-gray-900 ${isMobile ? 'absolute bottom-0 left-0 right-0' : 'border-t border-gray-800'}`}
+      className={`bg-gray-900 ${isMobile ? 'absolute bottom-0 left-0 right-0' : ''}`}
       style={style}
     >
-      <div className="px-6 py-3 border-t border-gray-700">
+      <div className="px-6 py-3">
         <ProgressBar 
           progress={progress} 
           size={isMobile ? undefined : 'md'} 
+          isToday={isToday}
         />
       </div>
 
-      <div className="border-t border-gray-700 px-6 py-6">
+      <div className="px-6 py-6">
         {isMobile ? (
           <>
             <AuthActions

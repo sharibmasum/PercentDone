@@ -1,14 +1,25 @@
 import { useState, useEffect, useMemo, memo } from 'react'
 import { useAuth } from '../../lib/auth'
 import { todoOperations } from '../../lib/supabase'
-import { emitProgressUpdateOptimistic } from '../../hooks/useProgressTracking'
+import { useProgressTracking } from '../../hooks/useProgressTracking'
 import DateHeader from '../layout/DateHeader'
 import TodoInput from './TodoInput'
 import TodoItem from './TodoItem'
 import AlertMessage from '../ui/AlertMessage'
 import { useMediaQuery } from 'react-responsive'
 
-function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handlePrev, handleNext, canGoPrev, canGoNext }) {
+function DayCard({ 
+  date, 
+  isToday = false, 
+  isFocused = true, 
+  isMobile = false,
+  mobileIndex, 
+  handlePrev, 
+  handleNext, 
+  canGoPrev, 
+  canGoNext,
+  onProgressUpdate 
+}) {
   const { user } = useAuth()
   const [todos, setTodos] = useState([])
   const [newTodo, setNewTodo] = useState('')
@@ -17,10 +28,28 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
   const [error, setError] = useState(null)
   const [sortOrder, setSortOrder] = useState('earliest')
 
-  const isMobile = useMediaQuery({ maxWidth: 767 })
+  const isMobileQuery = useMediaQuery({ maxWidth: 767 })
 
-  const dateString = useMemo(() => date.toISOString().split('T')[0], [date])
-  const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+  // Calculate progress from current todos state
+  const progress = useProgressTracking(todos)
+
+  // Update parent with progress whenever it changes
+  useEffect(() => {
+    if (onProgressUpdate) {
+      onProgressUpdate(progress, isToday, isMobile)
+    }
+  }, [progress, isToday, isMobile, onProgressUpdate])
+
+  const dateString = useMemo(() => {
+    const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+    return utcDate.toISOString().split('T')[0]
+  }, [date])
+
+  const today = useMemo(() => {
+    const now = new Date()
+    const utcDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+    return utcDate.toISOString().split('T')[0]
+  }, [])
 
   useEffect(() => {
     const loadTodos = async () => {
@@ -48,29 +77,32 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
   }, [user, dateString])
 
   useEffect(() => {
-    if (!isFocused) return 
-
-    const handleTodoUpdated = (event) => {
-      const updatedDate = event.detail.date
-      if (updatedDate === dateString) {
-        // Only reload if this card's date was updated
-        if (!user) {
-          const localTodos = JSON.parse(localStorage.getItem(`todos_${dateString}`)) || []
-          setTodos(localTodos)
-        } else {
-          // For authenticated users, reload from database
-          todoOperations.getTodosByDate(dateString)
-            .then(data => {
-              setTodos(data)
-            })
-            .catch(err => console.error('Error reloading todos:', err))
+    const handleTodoUpdate = (event) => {
+      const updateDate = event.detail?.date
+      if (updateDate) {
+        const updateDateString = new Date(updateDate).toISOString().split('T')[0]
+        if (updateDateString === dateString) {
+          const refreshTodos = async () => {
+            if (!user) {
+              const localTodos = JSON.parse(localStorage.getItem(`todos_${dateString}`)) || []
+              setTodos(localTodos)
+            } else {
+              try {
+                const data = await todoOperations.getTodosByDate(dateString)
+                setTodos(data)
+              } catch (err) {
+                console.error('Error refreshing todos:', err)
+              }
+            }
+          }
+          refreshTodos()
         }
       }
     }
 
-    window.addEventListener('todoUpdated', handleTodoUpdated)
-    return () => window.removeEventListener('todoUpdated', handleTodoUpdated)
-  }, [user, dateString, isFocused])
+    window.addEventListener('todoUpdated', handleTodoUpdate)
+    return () => window.removeEventListener('todoUpdated', handleTodoUpdate)
+  }, [user, dateString])
 
   const handleAddTodo = async (e) => {
     e.preventDefault()
@@ -99,8 +131,6 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
         setTodos(optimisticTodos)
         setNewTodo('')
         setShowMobileInput(false)
-        
-        emitProgressUpdateOptimistic(date, optimisticTodos)
         
         todoOperations.addTodo(newTodo.trim(), dateString)
           .then(realTodo => {
@@ -132,18 +162,7 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
         setNewTodo('')
         setShowMobileInput(false)
         
-        emitProgressUpdateOptimistic(date, updatedTodos)
-        
         localStorage.setItem(`todos_${dateString}`, JSON.stringify(updatedTodos))
-        
-        if (dateString === today) {
-          todoOperations.saveDailyTrackingStats(dateString, updatedTodos).catch(() => {
-          })
-        }
-        
-        window.dispatchEvent(new CustomEvent('todoUpdated', {
-          detail: { date: dateString, type: 'add' }
-        }))
       }
     } catch (err) {
       console.error('Error adding todo:', err)
@@ -158,28 +177,24 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
     )
     setTodos(updatedTodos)
     
-    emitProgressUpdateOptimistic(date, updatedTodos)
-    
     try {
       if (user) {
         await todoOperations.toggleTodo(id, !completed)
       } else {
         localStorage.setItem(`todos_${dateString}`, JSON.stringify(updatedTodos))
-        
-        if (dateString === today) {
-          todoOperations.saveDailyTrackingStats(dateString, updatedTodos).catch(() => {
-          })
-        }
       }
-
-      window.dispatchEvent(new CustomEvent('todoUpdated', {
-        detail: { date: dateString, type: 'toggle' }
-      }))
     } catch (err) {
       console.error('Error updating todo:', err)
+    
       if (!user) {
         const localTodos = JSON.parse(localStorage.getItem(`todos_${dateString}`)) || []
         setTodos(localTodos)
+      } else {
+        setTodos(current => 
+          current.map(todo => 
+            todo.id === id ? { ...todo, completed } : todo
+          )
+        )
       }
     }
   }
@@ -188,25 +203,15 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
     const updatedTodos = todos.filter(todo => todo.id !== id)
     setTodos(updatedTodos)
     
-    emitProgressUpdateOptimistic(date, updatedTodos)
-    
     try {
       if (user) {
         await todoOperations.deleteTodo(id)
       } else {
         localStorage.setItem(`todos_${dateString}`, JSON.stringify(updatedTodos))
-        
-        if (dateString === today) {
-          todoOperations.saveDailyTrackingStats(dateString, updatedTodos).catch(() => {
-          })
-        }
       }
-      
-      window.dispatchEvent(new CustomEvent('todoUpdated', {
-        detail: { date: dateString, type: 'delete' }
-      }))
     } catch (err) {
       console.error('Error deleting todo:', err)
+      // Revert on error
       if (!user) {
         const localTodos = JSON.parse(localStorage.getItem(`todos_${dateString}`)) || []
         setTodos(localTodos)
@@ -258,7 +263,7 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
         isFocused ? 'border border-gray-700' : 'border border-gray-800'
       }`} style={{ position: 'relative' }}>
         {/* Mobile: weekday with arrows */}
-        {isMobile ? (
+        {isMobileQuery ? (
           <div className="flex items-center justify-center mb-2 gap-2">
             <button
               onClick={handlePrev}
@@ -289,7 +294,7 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
               aria-label="Next Day"
               style={{ minWidth: 32, minHeight: 32 }}
             >
-              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
             </button>
           </div>
         ) : (
@@ -299,65 +304,53 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
           />
         )}
 
-        {/* Desktop/Tablet: show normal input */}
-        {!isMobile && (
+        {error && (
+          <div className="mb-4">
+            <AlertMessage type="error" message={error} />
+          </div>
+        )}
+
+        {!isMobileQuery && (
           <TodoInput
             value={newTodo}
             onChange={(e) => setNewTodo(e.target.value)}
             onSubmit={handleAddTodo}
-            disabled={false} 
+            placeholder={isToday ? "What needs to be done today?" : "Add a task for this day..."}
+            disabled={loading}
+            isToday={isToday}
           />
         )}
 
-        {/* Mobile: show floating + button and compact input bar */}
-        {isMobile && !showMobileInput && (
-          <button
-            className="fixed z-20 bottom-[100px] right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-xl w-12 h-12 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-400 backdrop-blur-md bg-opacity-90 border-2 border-blue-500"
-            onClick={() => setShowMobileInput(true)}
-            aria-label="Add Task"
-            style={{ boxShadow: '0 6px 24px rgba(0,0,0,0.18)' }}
-          >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-        )}
-        {isMobile && showMobileInput && (
-          <form
-            onSubmit={handleAddTodo}
-            className="fixed z-30 bottom-[100px] left-0 right-0 px-4"
-            style={{ pointerEvents: 'auto' }}
-          >
-            <div className="flex items-center rounded-2xl shadow-2xl bg-gray-900/80 backdrop-blur-md border border-gray-700 px-3 py-2 gap-2">
-              <input
-                type="text"
+        {isMobileQuery && (
+          <div className="mb-4">
+            {!showMobileInput ? (
+              <button
+                onClick={() => setShowMobileInput(true)}
+                className="w-full p-4 bg-gray-800 rounded-lg border border-gray-700 text-left
+                         text-gray-400 hover:text-white hover:border-gray-600 transition-colors duration-200"
+              >
+                {isToday ? "What needs to be done today?" : "Add a task for this day..."}
+              </button>
+            ) : (
+              <TodoInput
                 value={newTodo}
-                onChange={e => setNewTodo(e.target.value)}
-                placeholder="Add a task..."
-                className="flex-1 bg-transparent text-white placeholder-gray-400 border-none focus:outline-none focus:ring-0 focus:border-transparent focus:shadow-none text-base px-2 transition-shadow"
-                style={{ boxShadow: 'none' }}
-                autoFocus
+                onChange={(e) => setNewTodo(e.target.value)}
+                onSubmit={(e) => {
+                  handleAddTodo(e)
+                  setShowMobileInput(false)
+                }}
+                onCancel={() => {
+                  setShowMobileInput(false)
+                  setNewTodo('')
+                }}
+                placeholder={isToday ? "What needs to be done today?" : "Add a task for this day..."}
+                disabled={loading}
+                autoFocus={true}
+                showCancel={true}
+                isToday={isToday}
               />
-              <button
-                type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 py-1.5 text-sm font-semibold shadow-md transition-colors duration-150"
-              >
-                Add
-              </button>
-              <button
-                type="button"
-                className="text-gray-400 hover:text-gray-200 p-2 rounded-full transition-colors duration-150"
-                onClick={() => setShowMobileInput(false)}
-                aria-label="Cancel"
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-          </form>
-        )}
-
-        {error && (
-          <AlertMessage type="error">
-            {error}
-          </AlertMessage>
+            )}
+          </div>
         )}
 
         {todos.length > 0 && (
@@ -406,14 +399,6 @@ function DayCard({ date, isToday = false, isFocused = true, mobileIndex, handleP
             ))
           )}
         </div>
-        
-        {!isFocused && totalCount > 0 && (
-          <div className="text-center pt-2 border-t border-gray-800 mt-2 flex-shrink-0">
-            <div className="text-xs text-gray-600">
-              Click to focus for real-time updates
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

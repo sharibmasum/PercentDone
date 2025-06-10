@@ -1,49 +1,43 @@
-import { memo, useState, useEffect, useRef } from 'react'
+import { memo, useState, useEffect } from 'react'
+import { useAuth } from '../../lib/auth'
+import { todoOperations } from '../../lib/supabase'
 
-export default memo(function ProgressBar({ progress, className = "", size = "sm" }) {
+const getUTCDateString = (date) => {
+  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  return utcDate.toISOString().split('T')[0]
+}
+
+export default memo(function ProgressBar({ progress, className = "", size = "sm", isToday = false }) {
+  const { user } = useAuth()
   const { completed, total } = progress
-  const [displayProgress, setDisplayProgress] = useState({ completed, total })
-  const lastValidProgress = useRef({ completed, total })
-  const animationTimer = useRef(null)
+  const [displayProgress, setDisplayProgress] = useState({ completed: 0, total: 0 })
 
   useEffect(() => {
-    const newProgress = { completed, total }
-    
-    // Always update if we have valid data
     if (total >= 0 && completed >= 0) {
-      // If this is a forward movement or first valid data, update immediately
-      const currentPercentage = displayProgress.total > 0 ? (displayProgress.completed / displayProgress.total) * 100 : 0
-      const newPercentage = total > 0 ? (completed / total) * 100 : 0
-      
-      // Update immediately for forward progress or if we don't have valid display data
-      if (newPercentage >= currentPercentage || displayProgress.total === 0) {
-        setDisplayProgress(newProgress)
-        lastValidProgress.current = newProgress
-      } else {
-        // For backward movement, delay slightly to see if we get a corrective update
-        if (animationTimer.current) {
-          clearTimeout(animationTimer.current)
-        }
-        
-        animationTimer.current = setTimeout(() => {
-          // Only update if the data is still the same (not corrected)
-          if (completed === progress.completed && total === progress.total) {
-            setDisplayProgress(newProgress)
-            lastValidProgress.current = newProgress
-          }
-        }, 100) // Short delay to catch rapid corrections
-      }
+      setDisplayProgress({ completed, total })
     }
-
-    // Cleanup timer on unmount
-    return () => {
-      if (animationTimer.current) {
-        clearTimeout(animationTimer.current)
-      }
-    }
-  }, [completed, total, progress])
+  }, [completed, total])
 
   const progressPercentage = displayProgress.total > 0 ? Math.round((displayProgress.completed / displayProgress.total) * 100) : 0
+
+  useEffect(() => {
+    const saveToDatabase = async () => {
+      if (user && isToday && displayProgress.total >= 0 && displayProgress.completed >= 0) {
+        try {
+          const today = getUTCDateString(new Date())
+          await todoOperations.saveToDailyTracker(today, {
+            total_todos: displayProgress.total,
+            completed_todos: displayProgress.completed,
+            completion_percentage: progressPercentage
+          })
+        } catch (error) {
+          console.error('Error saving to daily_tracker:', error)
+        }
+      }
+    }
+
+    saveToDatabase()
+  }, [user, isToday, displayProgress.total, displayProgress.completed, progressPercentage])
 
   const sizeClasses = {
     sm: "h-1.5",
@@ -70,7 +64,7 @@ export default memo(function ProgressBar({ progress, className = "", size = "sm"
       </div>
       <div className={`w-full bg-gray-700 rounded-full ${sizeClasses[size]} mt-2`}>
         <div 
-          className={`${sizeClasses[size]} rounded-full transition-all duration-500 ease-out ${
+          className={`${sizeClasses[size]} rounded-full transition-all duration-300 ease-out ${
             progressPercentage === 100 ? 'bg-green-500' : 
             progressPercentage > 0 ? 'bg-yellow-500' : 'bg-gray-600'
           }`}

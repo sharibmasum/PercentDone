@@ -13,25 +13,23 @@ function TodoItem({ todo, onToggle, onDelete, onEdit, showLocalTag = false, isTo
     }
   }, [showMenu])
 
-  const handleToggleClick = (e) => {
+  const handleToggle = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    
     onToggle(todo.id, todo.completed)
   }
 
   const handleContainerClick = (e) => {
     if (!isToday || isEditing) return
     
-    if (e.target.closest('.menu-button') || e.target.closest('.menu-dropdown')) {
+    if (e.target.closest('.menu-button') || 
+        e.target.closest('.menu-dropdown') ||
+        e.target.tagName === 'INPUT' || 
+        e.target.tagName === 'BUTTON') {
       return
     }
     
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') {
-      return
-    }
-    
-    handleToggleClick(e)
+    handleToggle(e)
   }
 
   const handleEdit = () => {
@@ -75,7 +73,7 @@ function TodoItem({ todo, onToggle, onDelete, onEdit, showLocalTag = false, isTo
                 <div 
                   className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center cursor-pointer 
                            hover:bg-green-400 transition-colors duration-150 active:scale-95 transform"
-                  onClick={handleToggleClick}
+                  onClick={handleToggle}
                   style={{ 
                     outline: 'none',
                     WebkitTapHighlightColor: 'transparent',
@@ -95,7 +93,7 @@ function TodoItem({ todo, onToggle, onDelete, onEdit, showLocalTag = false, isTo
                   className="w-5 h-5 rounded-full border-2 border-gray-600 cursor-pointer 
                            hover:border-gray-500 hover:bg-gray-700 transition-colors duration-150 
                            active:scale-95 transform"
-                  onClick={handleToggleClick}
+                  onClick={handleToggle}
                   style={{ 
                     outline: 'none',
                     WebkitTapHighlightColor: 'transparent',
@@ -177,9 +175,7 @@ function TodoItem({ todo, onToggle, onDelete, onEdit, showLocalTag = false, isTo
               <div className="menu-dropdown absolute right-0 top-full mt-1 w-40 bg-gray-700 rounded-lg shadow-lg
                             border border-gray-600 py-1 z-10">
                 <button
-                  onClick={() => {
-                    handleEdit()
-                  }}
+                  onClick={handleEdit}
                   className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-600
                            transition-colors duration-200"
                 >
